@@ -13,7 +13,7 @@ class ExtendedSelfAttention(torch.nn.Module):
         self.v_linear = torch.nn.Linear(d_model, heads * d_model)
 
         self.attention = torch.nn.MultiheadAttention(
-            heads, d_model, dropout=dropout
+            d_model, heads, dropout=dropout
         )
 
     def forward(self, query, key, value):
