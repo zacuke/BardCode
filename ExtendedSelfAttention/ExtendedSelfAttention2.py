@@ -1,6 +1,6 @@
 import torch
 
-class ExtendedSelfAttention(torch.nn.Module):
+class ExtendedSelfAttention2(torch.nn.Module):
     def __init__(self, d_model, heads=8, dropout=0.1):
         super().__init__()
 
@@ -50,7 +50,7 @@ class TransformerEncoder(torch.nn.Module):
     def __init__(self, d_model, heads=8, dropout=0.1):
         super().__init__()
 
-        self.self_attention = ExtendedSelfAttention(d_model, heads, dropout)
+        self.self_attention = ExtendedSelfAttention2(d_model, heads, dropout)
 
         # Other layers in the encoder, such as a feed-forward layer.
 

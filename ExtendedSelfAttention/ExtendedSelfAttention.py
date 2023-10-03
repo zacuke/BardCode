@@ -1,79 +1,53 @@
-from bardapi import Bard
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import transformers
-from dotenv import load_dotenv
+
 import os
 from transformers import AutoTokenizer
 
 load_dotenv()
 
 class ExtendedSelfAttention(nn.Module):
-    def __init__(self, embed_dim=512, heads=8, dropout=0.1):
+    def __init__(self, d_model, n_heads, dropout=0.1):
         super(ExtendedSelfAttention, self).__init__()
 
-        self.d_model = embed_dim
-        self.heads = heads
-        self.dropout = dropout
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.dropout = nn.Dropout(dropout)
 
-        self.q_linear = nn.Linear(embed_dim, heads * embed_dim)
-        self.k_linear = nn.Linear(embed_dim, heads * embed_dim)
-        self.v_linear = nn.Linear(embed_dim, heads * embed_dim)
+        self.q_linear = nn.Linear(d_model, d_model * n_heads)
+        self.k_linear = nn.Linear(d_model, d_model * n_heads)
+        self.v_linear = nn.Linear(d_model, d_model * n_heads)
 
-        self.attention = nn.MultiheadAttention(
-            embed_dim, heads, dropout=dropout, bias=False
-        )
+        self.attention_map = nn.Linear(d_model * n_heads, d_model)
 
-    def forward(self, query, key, value):
+    def forward(self, query, key, value, mask=None):
+        # Calculate the attention scores.
         q = self.q_linear(query)
         k = self.k_linear(key)
         v = self.v_linear(value)
 
-        q = q.view(-1, self.heads, self.d_model)
-        k = k.view(-1, self.heads, self.d_model)
-        v = v.view(-1, self.heads, self.d_model)
+        q = q.view(query.size(0), query.size(1), self.n_heads, self.d_model // self.n_heads)
+        k = k.view(key.size(0), key.size(1), self.n_heads, self.d_model // self.n_heads)
+        v = v.view(value.size(0), value.size(1), self.n_heads, self.d_model // self.n_heads)
 
-        output, attention = self.attention(q, k, v)
+        attention_scores = torch.matmul(q, k.transpose(-1, -2)) / torch.sqrt(torch.tensor(self.d_model // self.n_heads))
 
-        output = output.view(-1, self.d_model)
+        # Apply the mask.
+        if mask is not None:
+            attention_scores = attention_scores.masked_fill(mask == 0, -float('inf'))
 
-        return output, attention
+        # Calculate the attention weights.
+        attention_weights = torch.softmax(attention_scores, dim=-1)
 
-#create a .env file with this in it
-#token=cookie: __Secure-1PSID
-token = os.getenv("token")
- 
-# Create a new Bard client.
-bard_client = Bard(token=token)
+        # Calculate the weighted context vector.
+        context = torch.matmul(attention_weights, v)
 
-initPrompt = "Your response to this will be sent back to you exactly as you sent it to me."
+        # Calculate the output.
+        output = self.attention_map(context.view(context.size(0), context.size(1), self.d_model))
 
-print ("---- " + initPrompt +" ----")
-
-# Use the Bard client to call the Bard API to generate text.
-initResponse = bard_client.get_answer(initPrompt)
-initResponseContent = initResponse["content"]
-print (initResponseContent)
-
-
-print ("--------------------------")
-queryResponse = bard_client.get_answer(initResponseContent)
-queryResponseContent = queryResponse["content"]
-print (queryResponseContent)
-
-# Convert the text to a list of integers.
-tokens = AutoTokenizer.from_pretrained("bert-base-uncased")(queryResponseContent) # n/a: google/bard-base 
-
-# Convert the list of integers to a Tensor. 
-tensor = torch.tensor(tokens["input_ids"])
-
-# Pass the tensor to the ExtendedSelfAttention model.
-model = ExtendedSelfAttention()
-output, attention = model(tensor, tensor, tensor)
-
-# Print the output.
-print(output)
-
+        return output
 
 
