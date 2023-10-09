@@ -12,19 +12,36 @@ Node* parse_tokens(vector<string> tokens) {
     Node* root = new Node("root");
     node_stack.push(root);
 
+    // Keep track of the current indentation level.
+    int indentation_level = 0;
+
     // Iterate over the tokens and parse them into the tree structure.
     for (const string& token : tokens) {
         // If the token is a left parenthesis, create a new node and push it onto the stack.
+        // Also, increase the indentation level.
         if (token == "(") {
             Node* new_node = new Node("node");
             new_node->parent = node_stack.top();
             node_stack.top()->children.push_back(new_node);
             node_stack.push(new_node);
+            indentation_level++;
         }
 
         // If the token is a right parenthesis, pop the current node from the stack.
+        // Also, decrease the indentation level.
         else if (token == ")") {
             node_stack.pop();
+            indentation_level--;
+        }
+
+        // If the token is an indent, increase the indentation level.
+        else if (token == "INDENT") {
+            indentation_level++;
+        }
+
+        // If the token is a dedent, decrease the indentation level.
+        else if (token == "DEDENT") {
+            indentation_level--;
         }
 
         // Otherwise, the token is a value, a keyword, or a name.

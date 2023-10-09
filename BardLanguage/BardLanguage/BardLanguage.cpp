@@ -17,7 +17,7 @@ void print_tree_tokens(Node* root) {
 		print_tree_tokens(child);
 	}
 
-	cout << root->type << " ";
+	cout << root->type << "=" << root->value << " ";
 }
 
 int main()
